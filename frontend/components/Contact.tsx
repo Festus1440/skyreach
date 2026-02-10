@@ -7,54 +7,43 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select } from "@/components/ui/select"
-
-const contactInfo = [
-  {
-    icon: Phone,
-    title: "Phone",
-    content: "1-800-123-4567",
-  },
-  {
-    icon: Mail,
-    title: "Email",
-    content: "service@skyreachair.com",
-  },
-  {
-    icon: MapPin,
-    title: "Address",
-    content: "123 Cool Breeze Ave, HVAC City, ST 12345",
-  },
-  {
-    icon: Clock,
-    title: "Hours",
-    content: "24/7 Emergency Service Available",
-  },
-]
+import { API_BASE_URL } from "@/lib/api"
+import { sitePhone, siteEmail } from "@/lib/site"
 
 export default function Contact() {
+  const contactInfo = [
+    { icon: Phone, title: "Phone", content: sitePhone },
+    { icon: Mail, title: "Email", content: siteEmail },
+    { icon: MapPin, title: "Address", content: "123 Cool Breeze Ave, HVAC City, ST 12345" },
+    { icon: Clock, title: "Hours", content: "24/7 Emergency Service Available" },
+  ]
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [submitError, setSubmitError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    setSubmitError("")
     setIsSubmitting(true)
-    
     const formData = new FormData(e.currentTarget)
-    const data = Object.fromEntries(formData)
-    
+    const data = Object.fromEntries(formData) as Record<string, string>
+    const payload = { ...data, source: "website" }
     try {
-      const response = await fetch('http://localhost:3001/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+      const response = await fetch(`${API_BASE_URL}/api/contact`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       })
-      
-      if (response.ok) {
+      const result = await response.json()
+      if (result.success) {
         setIsSubmitted(true)
         e.currentTarget.reset()
+      } else {
+        setSubmitError(result.message || "Something went wrong. Please try again.")
       }
     } catch (error) {
-      console.error('Error submitting form:', error)
+      console.error("Error submitting form:", error)
+      setSubmitError("Network error. Please check your connection and try again.")
     } finally {
       setIsSubmitting(false)
     }
@@ -123,6 +112,11 @@ export default function Contact() {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-6">
+                  {submitError && (
+                    <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">
+                      {submitError}
+                    </div>
+                  )}
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block font-semibold text-sky-dark mb-2">First Name</label>

@@ -3,10 +3,10 @@ const mongoose = require('mongoose');
 const leadSchema = new mongoose.Schema({
   // Contact Info
   firstName: { type: String, required: true },
-  lastName: { type: String, required: true },
-  email: { type: String, required: true },
+  lastName: { type: String, default: '' },
+  email: { type: String, default: '' },
   phone: { type: String, required: true },
-  zip: { type: String, required: true },
+  zip: { type: String, default: '' },
   
   // Service Details (from funnel)
   systemType: { type: String },

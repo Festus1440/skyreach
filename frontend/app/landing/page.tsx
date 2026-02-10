@@ -22,6 +22,8 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { sitePhone, sitePhoneTel } from "@/lib/site"
+import { API_BASE_URL } from "@/lib/api"
 
 // Exit Intent Popup Component
 function ExitIntentPopup({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
@@ -136,6 +138,7 @@ export default function LandingPage() {
   const [formData, setFormData] = useState({ name: "", phone: "", zip: "" })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [submitError, setSubmitError] = useState("")
   
   const { scrollYProgress } = useScroll()
   const funnelScale = useTransform(scrollYProgress, [0, 0.3], [1, 0.9])
@@ -165,13 +168,33 @@ export default function LandingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setSubmitError("")
     setIsSubmitting(true)
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    setIsSubmitting(false)
-    setIsSubmitted(true)
+    const trimmedName = formData.name.trim()
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/contact`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: trimmedName,
+          lastName: "",
+          email: "",
+          phone: formData.phone,
+          zip: formData.zip,
+          source: "landing",
+        }),
+      })
+      const result = await response.json()
+      if (result.success) {
+        setIsSubmitted(true)
+      } else {
+        setSubmitError(result.message || "Something went wrong. Please try again.")
+      }
+    } catch (err) {
+      setSubmitError("Network error. Please check your connection and try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const faqs = [
@@ -211,7 +234,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Phone className="w-5 h-5 animate-pulse" />
-            <span className="font-bold">Call Now: 1-800-123-4567</span>
+            <span className="font-bold">Call Now: {sitePhone}</span>
           </div>
           <Button 
             size="sm" 
@@ -345,6 +368,11 @@ export default function LandingPage() {
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
+                      {submitError && (
+                        <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">
+                          {submitError}
+                        </div>
+                      )}
                       <div>
                         <label className="block text-sm font-semibold text-slate-700 mb-1">
                           Full Name *
@@ -738,10 +766,12 @@ export default function LandingPage() {
               <Button 
                 size="lg" 
                 className="h-16 text-xl px-12 bg-red-500 hover:bg-red-600 shadow-2xl"
-                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                asChild
               >
-                <Phone className="w-6 h-6 mr-2" />
-                Call 1-800-123-4567
+                <a href={`tel:${sitePhoneTel()}`}>
+                  <Phone className="w-6 h-6 mr-2" />
+                  Call {sitePhone}
+                </a>
               </Button>
               <Button 
                 size="lg" 

@@ -3,6 +3,7 @@
 import { motion } from "framer-motion"
 import { Calendar, Phone } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { sitePhone, sitePhoneTel } from "@/lib/site"
 
 export default function CTA() {
   return (
@@ -45,7 +46,7 @@ export default function CTA() {
               className="text-lg px-8 border-white text-white hover:bg-white hover:text-sky-dark"
               asChild
             >
-              <a href="tel:+18001234567">
+              <a href={`tel:${sitePhoneTel()}`}>
                 <Phone className="h-5 w-5 mr-2" />
                 Call Now
               </a>

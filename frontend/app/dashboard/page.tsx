@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { API_BASE_URL } from "@/lib/api"
 
 interface Lead {
   _id: string
@@ -75,7 +76,7 @@ export default function DashboardPage() {
   const fetchDashboardData = async (token: string) => {
     try {
       // Fetch stats
-      const statsRes = await fetch('http://localhost:3001/api/dashboard/stats', {
+      const statsRes = await fetch(`${API_BASE_URL}/api/dashboard/stats`, {
         headers: { 
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -84,7 +85,7 @@ export default function DashboardPage() {
       })
 
       // Fetch leads
-      const leadsRes = await fetch('http://localhost:3001/api/dashboard/leads', {
+      const leadsRes = await fetch(`${API_BASE_URL}/api/dashboard/leads`, {
         headers: { 
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -111,7 +112,7 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:3001/api/auth/logout', {
+      await fetch(`${API_BASE_URL}/api/auth/logout`, {
         method: 'POST',
         credentials: 'include'
       })

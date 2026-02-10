@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Menu, X, Phone, Wind, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { sitePhone, sitePhoneTel, siteEmail } from "@/lib/site"
 
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false)
@@ -32,13 +33,13 @@ export default function Header() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <span className="hidden sm:inline">Licensed & Insured HVAC Professionals</span>
           <div className="flex items-center gap-6 ml-auto">
-            <a href="tel:+18001234567" className="flex items-center gap-2 hover:text-sky-accent transition-colors">
+            <a href={`tel:${sitePhoneTel()}`} className="flex items-center gap-2 hover:text-sky-accent transition-colors">
               <Phone className="h-4 w-4 text-sky-secondary" />
-              1-800-123-4567
+              {sitePhone}
             </a>
-            <a href="mailto:service@skyreachair.com" className="hidden md:flex items-center gap-2 hover:text-sky-accent transition-colors">
+            <a href={`mailto:${siteEmail}`} className="hidden md:flex items-center gap-2 hover:text-sky-accent transition-colors">
               <Mail className="h-4 w-4 text-sky-secondary" />
-              service@skyreachair.com
+              {siteEmail}
             </a>
           </div>
         </div>
@@ -80,9 +81,9 @@ export default function Header() {
 
             {/* CTA */}
             <div className="hidden lg:flex items-center gap-4">
-              <a href="tel:+18001234567" className="flex items-center gap-2 text-sky-primary font-semibold text-lg">
+              <a href={`tel:${sitePhoneTel()}`} className="flex items-center gap-2 text-sky-primary font-semibold text-lg">
                 <Phone className="h-5 w-5 animate-pulse" />
-                1-800-123-4567
+                {sitePhone}
               </a>
               <Button asChild>
                 <a href="#contact">Get a Free Quote</a>
@@ -133,7 +134,7 @@ export default function Header() {
             </ul>
             <div className="mt-8">
               <Button className="w-full" size="lg" asChild>
-                <a href="tel:+18001234567" onClick={() => setIsMobileMenuOpen(false)}>
+                <a href={`tel:${sitePhoneTel()}`} onClick={() => setIsMobileMenuOpen(false)}>
                   <Phone className="h-5 w-5 mr-2" />
                   Call Now
                 </a>

@@ -28,6 +28,8 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { API_BASE_URL } from "@/lib/api"
+import { sitePhone, sitePhoneTel } from "@/lib/site"
 
 // Types
 interface Question {
@@ -322,16 +324,14 @@ function ContactStep({
   submitError?: string
   fieldErrors?: Record<string, string>
 }) {
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '', zip: '' })
+  const [formData, setFormData] = useState({ name: '', phone: '', zip: '' })
   const [localErrors, setLocalErrors] = useState<Record<string, string>>({})
 
   const validateForm = () => {
     const errors: Record<string, string> = {}
     
     if (!formData.name.trim()) {
-      errors.name = 'Please enter your full name'
-    } else if (formData.name.trim().split(' ').length < 2) {
-      errors.name = 'Please enter both first and last name (e.g., John Smith)'
+      errors.name = 'Please enter your name'
     }
     
     if (!formData.phone.trim()) {
@@ -386,9 +386,9 @@ function ContactStep({
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Full Name *</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Name *</label>
           <Input
-            placeholder="John Smith"
+            placeholder="Your name"
             value={formData.name}
             onChange={(e) => {
               setFormData({...formData, name: e.target.value})
@@ -399,7 +399,7 @@ function ContactStep({
           {(localErrors.name || fieldErrors?.name || fieldErrors?.firstName || fieldErrors?.lastName) && (
             <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
               <AlertCircle className="w-4 h-4" />
-              {localErrors.name || fieldErrors?.name || fieldErrors?.firstName || fieldErrors?.lastName || 'Please enter your full name (first and last name, e.g. John Smith).'}
+              {localErrors.name || fieldErrors?.name || fieldErrors?.firstName || fieldErrors?.lastName || 'Please enter your name.'}
             </p>
           )}
         </div>
@@ -422,41 +422,23 @@ function ContactStep({
             </p>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-            <Input
-              type="email"
-              placeholder="john@email.com"
-              value={formData.email}
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
-              className={`h-12 ${fieldErrors?.email ? 'border-red-500 focus:border-red-500' : ''}`}
-            />
-            {fieldErrors?.email && (
-              <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-                <AlertCircle className="w-4 h-4" />
-                {fieldErrors.email}
-              </p>
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">ZIP Code *</label>
-            <Input
-              placeholder="12345"
-              value={formData.zip}
-              onChange={(e) => {
-                setFormData({...formData, zip: e.target.value})
-                if (localErrors.zip) setLocalErrors(prev => ({...prev, zip: ''}))
-              }}
-              className={`h-12 ${(localErrors.zip || fieldErrors?.zip) ? 'border-red-500 focus:border-red-500' : ''}`}
-            />
-            {(localErrors.zip || fieldErrors?.zip) && (
-              <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-                <AlertCircle className="w-4 h-4" />
-                {localErrors.zip || fieldErrors?.zip || 'Please enter a valid ZIP code'}
-              </p>
-            )}
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">ZIP Code *</label>
+          <Input
+            placeholder="12345"
+            value={formData.zip}
+            onChange={(e) => {
+              setFormData({...formData, zip: e.target.value})
+              if (localErrors.zip) setLocalErrors(prev => ({...prev, zip: ''}))
+            }}
+            className={`h-12 ${(localErrors.zip || fieldErrors?.zip) ? 'border-red-500 focus:border-red-500' : ''}`}
+          />
+          {(localErrors.zip || fieldErrors?.zip) && (
+            <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+              <AlertCircle className="w-4 h-4" />
+              {localErrors.zip || fieldErrors?.zip || 'Please enter a valid ZIP code'}
+            </p>
+          )}
         </div>
 
         {/* Dynamic What's Included */}
@@ -591,9 +573,11 @@ function SuccessStep({ answers }: { answers: Record<string, string> }) {
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 justify-center">
-        <Button size="lg" className="bg-green-600 hover:bg-green-700">
-          <Phone className="w-5 h-5 mr-2" />
-          Call Now: 1-800-123-4567
+        <Button size="lg" className="bg-green-600 hover:bg-green-700" asChild>
+          <a href={`tel:${sitePhoneTel()}`}>
+            <Phone className="w-5 h-5 mr-2" />
+            Call Now: {sitePhone}
+          </a>
         </Button>
       </div>
 
@@ -677,10 +661,10 @@ export default function FunnelPage() {
     setSubmitError('')
     setFieldErrors({})
     
+    const trimmedName = data.name.trim()
     const finalData = {
-      firstName: data.name.split(' ')[0] || data.name,
-      lastName: data.name.split(' ').slice(1).join(' ') || '',
-      email: data.email,
+      firstName: trimmedName,
+      lastName: '',
       phone: data.phone,
       zip: data.zip,
       systemType: answers['1'],
@@ -694,7 +678,7 @@ export default function FunnelPage() {
     }
     
     try {
-      const response = await fetch('http://localhost:3001/api/contact', {
+      const response = await fetch(`${API_BASE_URL}/api/contact`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(finalData)
@@ -709,9 +693,8 @@ export default function FunnelPage() {
         // Parse field errors from API response and map to user-friendly messages
         const errors: Record<string, string> = {}
         const friendlyMessages: Record<string, string> = {
-          firstName: 'Please enter your full name (first and last name, e.g. John Smith).',
-          lastName: 'Please enter your full name (first and last name, e.g. John Smith).',
-          email: 'Please enter a valid email address.',
+          firstName: 'Please enter your name.',
+          lastName: 'Please enter your name.',
           phone: 'Please enter a valid phone number (at least 10 digits).',
           zip: 'Please enter a valid 5-digit ZIP code.'
         }
@@ -794,9 +777,9 @@ export default function FunnelPage() {
               <span className="font-bold text-orange-600">$125 Maintenance</span>
             </div>
             
-            <a href="tel:18001234567" className="flex items-center gap-2 text-orange-600 font-semibold">
+            <a href={`tel:${sitePhoneTel()}`} className="flex items-center gap-2 text-orange-600 font-semibold">
               <Phone className="w-4 h-4" />
-              <span className="hidden sm:inline">1-800-123-4567</span>
+              <span className="hidden sm:inline">{sitePhone}</span>
             </a>
           </div>
           

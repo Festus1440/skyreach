@@ -57,10 +57,10 @@ app.get('/api/health', (req, res) => {
 
 // Public contact form submission endpoint (from funnel/landing)
 app.post('/api/contact', [
-  // Validation
-  body('firstName').trim().notEmpty().withMessage('First name is required'),
-  body('lastName').trim().notEmpty().withMessage('Last name is required'),
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  // Validation (single name allowed; email optional for funnel)
+  body('firstName').trim().notEmpty().withMessage('Name is required'),
+  body('lastName').optional().trim(),
+  body('email').optional().isEmail().normalizeEmail(),
   body('phone').trim().notEmpty().withMessage('Phone number is required'),
   body('service').optional().trim(),
   body('message').optional().trim(),
@@ -80,13 +80,13 @@ app.post('/api/contact', [
       });
     }
 
-    const { firstName, lastName, email, phone, service, message, ...otherData } = req.body;
+    const { firstName, lastName = '', email, phone, service, message, ...otherData } = req.body;
 
     // Save lead to database
     const leadData = {
       firstName,
-      lastName,
-      email,
+      lastName: lastName || '',
+      email: email || '',
       phone,
       zip: otherData.zip || '',
       systemType: otherData.systemType,
@@ -125,15 +125,16 @@ app.post('/api/contact', [
         }
       });
 
+      const displayName = [firstName, lastName].filter(Boolean).join(' ').trim() || firstName;
       const mailOptions = {
         from: process.env.EMAIL_FROM || 'noreply@skyreachair.com',
         to: process.env.ADMIN_EMAIL_RECIPIENT || 'service@skyreachair.com',
-        replyTo: email,
-        subject: `New Lead: ${firstName} ${lastName} - ${serviceName}`,
+        ...(email && { replyTo: email }),
+        subject: `New Lead: ${displayName} - ${serviceName}`,
         html: `
           <h2>New Lead Submission</h2>
-          <p><strong>Name:</strong> ${firstName} ${lastName}</p>
-          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Name:</strong> ${displayName}</p>
+          ${email ? `<p><strong>Email:</strong> ${email}</p>` : ''}
           <p><strong>Phone:</strong> ${phone}</p>
           <p><strong>Service:</strong> ${serviceName}</p>
           <p><strong>Message:</strong> ${message || 'N/A'}</p>
@@ -160,6 +161,15 @@ app.post('/api/contact', [
 
   } catch (error) {
     console.error('Error processing contact form:', error);
+    // Return validation errors (e.g. Mongoose ValidatorError) with a clear message
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map((e) => e.message).filter(Boolean);
+      return res.status(400).json({
+        success: false,
+        message: messages.length ? messages.join(' ') : 'Validation failed. Please check your input.',
+        errors: Object.entries(error.errors).map(([path, e]) => ({ field: path, message: e.message }))
+      });
+    }
     res.status(500).json({
       success: false,
       message: 'An error occurred while processing your request.'
