@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import { usePostHog } from "@posthog/react"
 import { 
   Wind, 
   ChevronRight, 
@@ -30,12 +31,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { API_BASE_URL } from "@/lib/api"
 import { sitePhone, sitePhoneTel } from "@/lib/site"
+import { FunnelEvents, FUNNEL_NAME } from "@/lib/posthog-funnel"
 
 // Types
 interface Question {
   id: number
   type: 'single' | 'contact' | 'filter' | 'result'
   question: string
+  /** Short name for analytics (funnel step label in PostHog) */
+  stepName: string
   subtitle?: string
   options?: Option[]
   icon?: React.ElementType
@@ -100,6 +104,7 @@ const questions: Question[] = [
     id: 1,
     type: 'single',
     question: "What type of heating system?",
+    stepName: "Heating system type",
     subtitle: "We'll customize your maintenance checklist",
     icon: Flame,
     options: [
@@ -112,6 +117,7 @@ const questions: Question[] = [
     id: 2,
     type: 'filter',
     question: "What size filter do you need?",
+    stepName: "Filter size",
     subtitle: "We'll bring the right replacement filter",
     icon: Filter,
   },
@@ -119,6 +125,7 @@ const questions: Question[] = [
     id: 3,
     type: 'single',
     question: "When did you last service it?",
+    stepName: "Last service",
     subtitle: "Regular maintenance prevents costly breakdowns",
     icon: Calendar,
     options: [
@@ -132,6 +139,7 @@ const questions: Question[] = [
     id: 4,
     type: 'single',
     question: "Any current issues?",
+    stepName: "Current issues",
     subtitle: "We'll check everything during your $125 maintenance",
     icon: Wrench,
     options: [
@@ -146,6 +154,7 @@ const questions: Question[] = [
     id: 5,
     type: 'single',
     question: "Property type?",
+    stepName: "Property type",
     subtitle: "$125 special applies to all residential properties",
     icon: Home,
     options: [
@@ -159,6 +168,7 @@ const questions: Question[] = [
     id: 6,
     type: 'single',
     question: "How soon do you need service?",
+    stepName: "Service timing",
     subtitle: "Limited spots available at $125 price",
     icon: Clock,
     options: [
@@ -172,6 +182,7 @@ const questions: Question[] = [
     id: 7,
     type: 'contact',
     question: "Claim your $125 maintenance!",
+    stepName: "Contact form",
     subtitle: "Enter your details to lock in this price. Limited time offer.",
     icon: BadgeCheck,
   }
@@ -603,6 +614,11 @@ function SuccessStep({ answers }: { answers: Record<string, string> }) {
 
 // Main Funnel Component
 export default function FunnelPage() {
+  const posthog = usePostHog()
+  const stepStartTimeRef = useRef<number | null>(null)
+  const previousStepRef = useRef<number | null>(null)
+  const hasTrackedStartRef = useRef(false)
+
   const [currentStep, setCurrentStep] = useState(0)
   const [answers, setAnswers] = useState<Record<string, any>>({})
   const [direction, setDirection] = useState(0)
@@ -613,6 +629,68 @@ export default function FunnelPage() {
   const currentQuestion = questions[currentStep]
   const isFirstStep = currentStep === 0
   const isLastStep = currentStep === questions.length - 1
+
+  // PostHog: funnel started (once on mount)
+  useEffect(() => {
+    if (!posthog || hasTrackedStartRef.current) return
+    hasTrackedStartRef.current = true
+    posthog.capture(FunnelEvents.STARTED, { funnel: FUNNEL_NAME })
+  }, [posthog])
+
+  // PostHog: step viewed + time on previous step when step or completion changes
+  useEffect(() => {
+    if (!posthog) return
+    const now = Date.now()
+    const prevStep = previousStepRef.current
+    const prevStart = stepStartTimeRef.current
+
+    if (prevStep !== null && prevStart !== null && !isCompleted) {
+      const timeOnStepSeconds = Math.round((now - prevStart) / 1000)
+      const prevQ = questions[prevStep]
+      posthog.capture(FunnelEvents.STEP_COMPLETED, {
+        funnel: FUNNEL_NAME,
+        step_index: prevStep + 1,
+        step_name: prevQ?.stepName,
+        step_id: prevQ?.id,
+        step_type: prevQ?.type,
+        question_text: prevQ?.question,
+        time_on_step_seconds: timeOnStepSeconds,
+        answer: answers[prevQ?.id],
+      })
+    }
+
+    if (isCompleted) {
+      if (prevStart !== null && prevStep !== null) {
+        const timeOnStepSeconds = Math.round((now - prevStart) / 1000)
+        const prevQ = questions[prevStep]
+        posthog.capture(FunnelEvents.STEP_COMPLETED, {
+          funnel: FUNNEL_NAME,
+          step_index: prevStep + 1,
+          step_name: prevQ?.stepName,
+          step_id: prevQ?.id,
+          step_type: prevQ?.type,
+          question_text: prevQ?.question,
+          time_on_step_seconds: timeOnStepSeconds,
+        })
+      }
+      previousStepRef.current = null
+      stepStartTimeRef.current = null
+      return
+    }
+
+    previousStepRef.current = currentStep
+    stepStartTimeRef.current = now
+    const q = questions[currentStep]
+    posthog.capture(FunnelEvents.STEP_VIEWED, {
+      funnel: FUNNEL_NAME,
+      step_index: currentStep + 1,
+      step_name: q?.stepName,
+      step_id: q?.id,
+      step_type: q?.type,
+      question_text: q?.question,
+      total_steps: questions.length,
+    })
+  }, [currentStep, isCompleted, posthog])
 
   // Handle answer selection with auto-advance
   const handleAnswer = useCallback((value: string) => {
@@ -687,9 +765,17 @@ export default function FunnelPage() {
       const result = await response.json()
       
       if (result.success) {
+        posthog?.capture(FunnelEvents.CONTACT_SUBMITTED, { funnel: FUNNEL_NAME, success: true })
+        posthog?.capture(FunnelEvents.LEAD_SUBMITTED, { funnel: FUNNEL_NAME })
         setAnswers(prev => ({ ...prev, contact: finalData }))
         setIsCompleted(true)
       } else {
+        posthog?.capture(FunnelEvents.CONTACT_SUBMITTED, {
+          funnel: FUNNEL_NAME,
+          success: false,
+          error_message: result.message,
+          errors: result.errors,
+        })
         // Parse field errors from API response and map to user-friendly messages
         const errors: Record<string, string> = {}
         const friendlyMessages: Record<string, string> = {
@@ -718,6 +804,11 @@ export default function FunnelPage() {
       }
     } catch (error) {
       console.error('Submit error:', error)
+      posthog?.capture(FunnelEvents.CONTACT_SUBMITTED, {
+        funnel: FUNNEL_NAME,
+        success: false,
+        error_message: 'Network error',
+      })
       setSubmitError('Network error. Please check your connection and try again.')
     } finally {
       setIsSubmitting(false)

@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import "./globals.css"
+import { PostHogProvider } from "./providers"
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://skyreachair.com'),
@@ -24,7 +25,9 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.ico" />
       </head>
-      <body>{children}</body>
+      <body>
+        <PostHogProvider>{children}</PostHogProvider>
+      </body>
     </html>
   )
 }
