@@ -630,10 +630,11 @@ export default function FunnelPage() {
   const isFirstStep = currentStep === 0
   const isLastStep = currentStep === questions.length - 1
 
-  // PostHog: funnel started (once on mount)
+  // PostHog: test connection on first load (step 1) and funnel started
   useEffect(() => {
     if (!posthog || hasTrackedStartRef.current) return
     hasTrackedStartRef.current = true
+    console.log("happy logging")
     posthog.capture(FunnelEvents.STARTED, { funnel: FUNNEL_NAME })
   }, [posthog])
 
