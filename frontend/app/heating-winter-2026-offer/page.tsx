@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { usePostHog } from "@posthog/react"
+import posthogGlobal from "posthog-js"
 import { 
   Wind, 
   ChevronRight, 
@@ -614,7 +615,9 @@ function SuccessStep({ answers }: { answers: Record<string, string> }) {
 
 // Main Funnel Component
 export default function FunnelPage() {
-  const posthog = usePostHog()
+  const posthogFromHook = usePostHog()
+  // Fallback to global so custom events fire in prod when hook is not ready yet
+  const posthog = posthogFromHook ?? (typeof window !== "undefined" ? posthogGlobal : null)
   const stepStartTimeRef = useRef<number | null>(null)
   const previousStepRef = useRef<number | null>(null)
   const hasTrackedStartRef = useRef(false)
@@ -634,7 +637,7 @@ export default function FunnelPage() {
   useEffect(() => {
     if (!posthog || hasTrackedStartRef.current) return
     hasTrackedStartRef.current = true
-    console.log("happy logging")
+    console.log("[PostHog] funnel_started", { funnel: FUNNEL_NAME })
     posthog.capture(FunnelEvents.STARTED, { funnel: FUNNEL_NAME })
   }, [posthog])
 
@@ -648,7 +651,7 @@ export default function FunnelPage() {
     if (prevStep !== null && prevStart !== null && !isCompleted && prevStep !== currentStep) {
       const timeOnStepSeconds = Math.round((now - prevStart) / 1000)
       const prevQ = questions[prevStep]
-      posthog.capture(FunnelEvents.STEP_COMPLETED, {
+      const payload = {
         funnel: FUNNEL_NAME,
         step_index: prevStep + 1,
         step_name: prevQ?.stepName,
@@ -657,14 +660,16 @@ export default function FunnelPage() {
         question_text: prevQ?.question,
         time_on_step_seconds: timeOnStepSeconds,
         answer: answers[prevQ?.id],
-      })
+      }
+      console.log("[PostHog] funnel_step_completed", payload)
+      posthog.capture(FunnelEvents.STEP_COMPLETED, payload)
     }
 
     if (isCompleted) {
       if (prevStart !== null && prevStep !== null) {
         const timeOnStepSeconds = Math.round((now - prevStart) / 1000)
         const prevQ = questions[prevStep]
-        posthog.capture(FunnelEvents.STEP_COMPLETED, {
+        const payload = {
           funnel: FUNNEL_NAME,
           step_index: prevStep + 1,
           step_name: prevQ?.stepName,
@@ -672,7 +677,9 @@ export default function FunnelPage() {
           step_type: prevQ?.type,
           question_text: prevQ?.question,
           time_on_step_seconds: timeOnStepSeconds,
-        })
+        }
+        console.log("[PostHog] funnel_step_completed (contact step)", payload)
+        posthog.capture(FunnelEvents.STEP_COMPLETED, payload)
       }
       previousStepRef.current = null
       stepStartTimeRef.current = null
@@ -682,7 +689,7 @@ export default function FunnelPage() {
     previousStepRef.current = currentStep
     stepStartTimeRef.current = now
     const q = questions[currentStep]
-    posthog.capture(FunnelEvents.STEP_VIEWED, {
+    const stepViewedPayload = {
       funnel: FUNNEL_NAME,
       step_index: currentStep + 1,
       step_name: q?.stepName,
@@ -690,7 +697,9 @@ export default function FunnelPage() {
       step_type: q?.type,
       question_text: q?.question,
       total_steps: questions.length,
-    })
+    }
+    console.log("[PostHog] funnel_step_viewed", stepViewedPayload)
+    posthog.capture(FunnelEvents.STEP_VIEWED, stepViewedPayload)
   }, [currentStep, isCompleted, posthog])
 
   // Handle answer selection with auto-advance
@@ -766,11 +775,14 @@ export default function FunnelPage() {
       const result = await response.json()
       
       if (result.success) {
+        console.log("[PostHog] funnel_contact_submitted", { success: true })
         posthog?.capture(FunnelEvents.CONTACT_SUBMITTED, { funnel: FUNNEL_NAME, success: true })
+        console.log("[PostHog] funnel_lead_submitted")
         posthog?.capture(FunnelEvents.LEAD_SUBMITTED, { funnel: FUNNEL_NAME })
         setAnswers(prev => ({ ...prev, contact: finalData }))
         setIsCompleted(true)
       } else {
+        console.log("[PostHog] funnel_contact_submitted", { success: false, error_message: result.message })
         posthog?.capture(FunnelEvents.CONTACT_SUBMITTED, {
           funnel: FUNNEL_NAME,
           success: false,
@@ -805,6 +817,7 @@ export default function FunnelPage() {
       }
     } catch (error) {
       console.error('Submit error:', error)
+      console.log("[PostHog] funnel_contact_submitted", { success: false, error_message: "Network error" })
       posthog?.capture(FunnelEvents.CONTACT_SUBMITTED, {
         funnel: FUNNEL_NAME,
         success: false,
