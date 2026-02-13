@@ -117,18 +117,19 @@ app.post('/api/contact', [
 
     // Send email notification (optional)
     try {
-      const transporter = nodemailer.createTransporter({
-        service: process.env.EMAIL_SERVICE || 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        }
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || '587', 10),
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: process.env.SMTP_USER && process.env.SMTP_PASS
+          ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+          : undefined,
       });
 
       const displayName = [firstName, lastName].filter(Boolean).join(' ').trim() || firstName;
       const mailOptions = {
-        from: process.env.EMAIL_FROM || 'noreply@skyreachair.com',
-        to: process.env.ADMIN_EMAIL_RECIPIENT || 'service@skyreachair.com',
+        from: process.env.SMTP_FROM || 'noreply@example.com',
+        to: process.env.CONTACT_EMAIL || process.env.ADMIN_EMAIL_RECIPIENT || 'service@example.com',
         ...(email && { replyTo: email }),
         subject: `New Lead: ${displayName} - ${serviceName}`,
         html: `

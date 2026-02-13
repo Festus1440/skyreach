@@ -645,7 +645,7 @@ export default function FunnelPage() {
     const prevStep = previousStepRef.current
     const prevStart = stepStartTimeRef.current
 
-    if (prevStep !== null && prevStart !== null && !isCompleted) {
+    if (prevStep !== null && prevStart !== null && !isCompleted && prevStep !== currentStep) {
       const timeOnStepSeconds = Math.round((now - prevStart) / 1000)
       const prevQ = questions[prevStep]
       posthog.capture(FunnelEvents.STEP_COMPLETED, {
